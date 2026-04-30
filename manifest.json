@@ -1,0 +1,20 @@
+{
+  "name": "NeonRun",
+  "short_name": "NeonRun",
+  "description": "Infinite neon platformer — Outrun. Outlast. Outscore.",
+  "start_url": "/",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#060614",
+  "theme_color": "#060614",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' fill='%23060614'/><text y='380' font-size='400' text-anchor='middle' x='256'>🎮</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["games"],
+  "screenshots": []
+}

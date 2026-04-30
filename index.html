@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="NeonRun" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="theme-color" content="#060614" />
+  <title>NeonRun</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+  <link rel="manifest" href="manifest.json" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.60.0/phaser.min.js"></script>
+</head>
+<body>
+  <div id="game-container"></div>
+  <div id="touch-controls">
+    <div id="touch-left"  class="touch-btn"><span>◀</span></div>
+    <div id="touch-right" class="touch-btn"><span>▶</span></div>
+    <div id="touch-jump"  class="touch-btn jump-btn"><span>▲</span></div>
+  </div>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
