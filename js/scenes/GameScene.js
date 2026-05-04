@@ -91,6 +91,7 @@ export default class GameScene extends Phaser.Scene {
 
   _handleObstacleHit(p, obs) {
     if (this.gameOver) return;
+    if (p._respawnInvincible) return; // invincible after respawn - pass through
     if (this.shieldActive) {
       this._deactivatePowerup();
       this._showFloatingText(p.x, p.y-30, 'BLOCKED!', this.theme.hudColor);
@@ -107,6 +108,7 @@ export default class GameScene extends Phaser.Scene {
 
   _handleEnemyHit(p, enemy) {
     if (this.gameOver) return;
+    if (p._respawnInvincible) return; // invincible after respawn - pass through
     if (p.body.velocity.y > 0 && p.y < enemy.y - 10) {
       enemy.destroy(); p.setVelocityY(-380);
       const stompPts = this._frenzyActive ? 10 : 3;
@@ -507,16 +509,10 @@ export default class GameScene extends Phaser.Scene {
         this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
         this.cameras.main.setDeadzone(100, 60);
 
-        // 6 second respawn invincibility + no gravity (float forward)
+        // 6 second invincibility - normal physics, just can't die
         this.player.invincible = true;
         this.player._respawnInvincible = true;
-
-        // Kill gravity so player floats forward at a fixed Y
-        const floatY = this.player.y;
-        this.player.body.setGravityY(-900); // cancel world gravity
-        this.player.setVelocityY(0);
-        this._respawnFloatY = floatY;
-        this._respawnFloating = true;
+        this._respawnFloating = false; // no floating, normal movement
 
         // Flash effect
         this.tweens.killTweensOf(this.player);
@@ -527,24 +523,19 @@ export default class GameScene extends Phaser.Scene {
           onComplete: () => { if (this.player) this.player.setAlpha(1); }
         });
 
-        // Floating text
         this._showFloatingText(
           this.player.x, this.player.y - 55,
           '⚡ INVINCIBLE 6s!', '#ffee00'
         );
 
-        // HUD bar
         this._safeUpdateUI('showPowerup', 'INVINCIBLE', 6000);
 
-        // End after 6 seconds — restore gravity
         this.time.delayedCall(6000, () => {
           if (this.player) {
             this.player.invincible = false;
             this.player._respawnInvincible = false;
-            this.player.body.setGravityY(0); // restore normal gravity
             this.player.setAlpha(1);
           }
-          this._respawnFloating = false;
           this._safeUpdateUI('hidePowerup');
         });
       };
@@ -889,16 +880,7 @@ export default class GameScene extends Phaser.Scene {
 
     if (this.shieldRing) { this.shieldRing.x = this.player.x; this.shieldRing.y = this.player.y; }
 
-    // During respawn float: keep player at fixed Y unless jumping higher
-    if (this._respawnFloating && this.player && this.player.body) {
-      // Allow jumping up freely, but prevent falling below float line
-      if (this.player.y > this._respawnFloatY + 5) {
-        this.player.y = this._respawnFloatY;
-        this.player.setVelocityY(0);
-      }
-      // Keep gravity cancelled
-      this.player.body.setGravityY(-900);
-    }
+
 
     // Tick character power cooldown
     if (this.charPowerCooldown > 0) {
@@ -916,8 +898,8 @@ export default class GameScene extends Phaser.Scene {
     this.player.update(this, delta);
     this.worldFX.update(this.player.x, this.player.y, camX);
 
-    // Death: fell off bottom
-    if (this.player.y > this.deathY && !this.player.isDead) {
+    // Death: fell off bottom (not during respawn invincibility)
+    if (this.player.y > this.deathY && !this.player.isDead && !this.player._respawnInvincible) {
       this.deathX = this.player.x; // record where death happened
       this.lives--;
       this._safeUpdateUI('updateLives', this.lives);
@@ -925,7 +907,7 @@ export default class GameScene extends Phaser.Scene {
       else this._respawnPlayer();
     }
     // Death: scrolled off left
-    if (this.player.x < camX - 20 && !this.player.isDead) this._triggerGameOver();
+    if (this.player.x < camX - 20 && !this.player.isDead && !this.player._respawnInvincible) this._triggerGameOver();
   }
 
   shutdown() {
