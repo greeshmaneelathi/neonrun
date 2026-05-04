@@ -1,5 +1,6 @@
 import { generateCharacterTextures } from "../characters/CharacterGenerator.js";
 import { generateAirCollectibleTextures } from "../objects/AirCollectibles.js";
+import { CHARACTERS } from '../characters/CharacterConfig.js';
 import { generatePowerUpTextures } from '../objects/PowerUp.js';
 import { generateThemeAssets } from '../themes/ThemeAssetGenerator.js';
 
@@ -21,6 +22,7 @@ export default class BootScene extends Phaser.Scene {
     // ── All theme assets ───────────────────────────────────────────────────
     generateThemeAssets(this);
     generatePowerUpTextures(this);
+    window._neonrunChars = { CHARACTERS };
     generateAirCollectibleTextures(this);
     generateCharacterTextures(this);
 

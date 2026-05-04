@@ -109,8 +109,9 @@ export default class GameScene extends Phaser.Scene {
     if (this.gameOver) return;
     if (p.body.velocity.y > 0 && p.y < enemy.y - 10) {
       enemy.destroy(); p.setVelocityY(-380);
-      this._addScore(3);
-      this._showFloatingText(enemy.x, enemy.y-20, '+3', this.theme.accentColor);
+      const stompPts = this._frenzyActive ? 10 : 3;
+      this._addScore(stompPts);
+      this._showFloatingText(enemy.x, enemy.y - 20, `+${stompPts}`, this.theme.accentColor);
       sound.stomp();
       this.worldFX.sparkBurst(enemy.x, enemy.y);
     } else if (this.shieldActive) {
@@ -193,6 +194,16 @@ export default class GameScene extends Phaser.Scene {
       }).setOrigin(0.5)));
       this.readyContainer.add(makeFix(this.add.text(cx+cardW/2, cy+90, char.desc, {
         fontFamily:'Share Tech Mono, monospace', fontSize:'7px', color:'#666'
+      }).setOrigin(0.5)));
+      // Power name
+      this.readyContainer.add(makeFix(this.add.text(cx+cardW/2, cy+102, '⚡ ' + char.powerName, {
+        fontFamily:'Orbitron, monospace', fontSize:'7px', fontStyle:'bold',
+        color:'#ffee00'
+      }).setOrigin(0.5)));
+      // Power desc - word wrapped
+      this.readyContainer.add(makeFix(this.add.text(cx+cardW/2, cy+113, char.powerDesc, {
+        fontFamily:'Share Tech Mono, monospace', fontSize:'6px', color:'#888888',
+        wordWrap:{ width: cardW - 8 }, align:'center'
       }).setOrigin(0.5)));
       if (isSelected) {
         this.readyContainer.add(makeFix(this.add.text(cx+cardW/2, cy+cardH-8, '✓', {
@@ -495,7 +506,7 @@ export default class GameScene extends Phaser.Scene {
         this.physics.world.isPaused = false;
         this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
         this.cameras.main.setDeadzone(100, 60);
-        this.time.delayedCall(1200, () => { if (this.player) this.player.invincible = false; });
+        this.time.delayedCall(6000, () => { if (this.player) this.player.invincible = false; });
       };
 
       this.input.off('pointerdown', this._respawnResumeFn);
@@ -628,9 +639,143 @@ export default class GameScene extends Phaser.Scene {
       ease:'Cubic.easeOut', onComplete:()=>t.destroy() });
   }
 
+  // ── Character Power ──────────────────────────────────────────────
+  _activateCharPower() {
+    if (this.charPowerCooldown > 0 || this.gameOver || this.waiting) return;
+    const { CHARACTERS } = window._neonrunChars || {};
+    if (!CHARACTERS) return;
+    const chars = CHARACTERS[this.themeId];
+    const char  = chars?.find(c => c.id === this.charId);
+    if (!char) return;
+
+    this._charPowerMaxCooldown = char.cooldown;
+    this.charPowerCooldown = char.cooldown;
+    sound.powerup();
+
+    this._showFloatingText(this.player.x, this.player.y - 50, char.powerName + '!',
+      '#' + char.color.toString(16).padStart(6,'0'));
+
+    const emitter = this.add.particles(this.player.x, this.player.y, 'particle', {
+      speed:{min:60,max:180}, angle:{min:0,max:360}, scale:{start:0.8,end:0},
+      tint: char.color, alpha:{start:1,end:0}, lifespan:500, quantity:24
+    });
+    this.time.delayedCall(600, () => emitter.destroy());
+
+    switch (char.powerKey) {
+      case 'emp': case 'shock': case 'quake': case 'blast': case 'sonar':
+      case 'ink': case 'golem_quake':
+        // Destroy all enemies and obstacles on screen
+        const camX = this.cameras.main.scrollX;
+        [...this.level.enemies.getChildren(), ...this.level.obstacles.getChildren()].forEach(e => {
+          if (e.x > camX - 50 && e.x < camX + 900) {
+            this.worldFX.sparkBurst(e.x, e.y);
+            e.destroy();
+          }
+        });
+        this._addScore(5);
+        break;
+
+      case 'overclock': case 'afterburn':
+        this.speedActive = true;
+        this._safeUpdateUI('showPowerup', 'SPEED', char.duration);
+        this.time.delayedCall(char.duration, () => { this.speedActive = false; this._safeUpdateUI('hidePowerup'); });
+        break;
+
+      case 'phase': case 'stealth':
+        this.player.invincible = true;
+        this.player.setAlpha(0.45);
+        this._safeUpdateUI('showPowerup', 'SHIELD', char.duration);
+        this.time.delayedCall(char.duration, () => {
+          this.player.invincible = false; this.player.setAlpha(1);
+          this._safeUpdateUI('hidePowerup');
+        });
+        break;
+
+      case 'hover':
+        this.player.body.setGravityY(-800);
+        this.time.delayedCall(char.duration, () => { this.player.body.setGravityY(0); });
+        break;
+
+      case 'current': case 'treasure':
+        this.magnetActive = true;
+        this._safeUpdateUI('showPowerup', 'MAGNET', char.duration);
+        this.time.delayedCall(char.duration, () => { this.magnetActive = false; this._safeUpdateUI('hidePowerup'); });
+        break;
+
+      case 'frenzy':
+        this._frenzyActive = true;
+        this.time.delayedCall(char.duration, () => { this._frenzyActive = false; });
+        break;
+
+      case 'shell': case 'shield_bot':
+        this.charPowerShields = char.powerKey === 'shield_bot' ? 3 : 2;
+        this.shieldActive = true;
+        this._safeUpdateUI('showPowerup', 'SHIELD', char.duration);
+        this.time.delayedCall(char.duration, () => {
+          this.shieldActive = false; this.charPowerShields = 0;
+          this._safeUpdateUI('hidePowerup');
+        });
+        break;
+
+      case 'rebirth':
+        this._rebirthReady = true;
+        this._showFloatingText(this.player.x, this.player.y - 40, 'REBIRTH READY!', '#ff2200');
+        break;
+
+      case 'hellfire':
+        this._hellfireActive = true;
+        this.time.delayedCall(char.duration, () => { this._hellfireActive = false; });
+        break;
+
+      case 'jetpack':
+        this.player.setVelocityY(-800);
+        this.player.body.setGravityY(-600);
+        this.time.delayedCall(char.duration, () => { this.player.body.setGravityY(0); });
+        break;
+
+      case 'abduct': case 'swing':
+        this.player.x += 400;
+        this._showFloatingText(this.player.x, this.player.y - 40, 'WARP!', '#aa44ff');
+        this.worldFX.warpEffect(this.player.x, this.player.y);
+        break;
+
+      case 'scan':
+        // Freeze enemies
+        this.level.enemies.getChildren().forEach(e => {
+          e._frozen = true;
+          this.time.delayedCall(char.duration, () => { e._frozen = false; });
+        });
+        break;
+
+      case 'superjump':
+        this.player.setVelocityY(-1100);
+        this.player.jumpsLeft = 2;
+        break;
+
+      case 'totem':
+        this.shieldActive  = true;
+        this.magnetActive  = true;
+        this.speedActive   = true;
+        this._safeUpdateUI('showPowerup', 'SHIELD', char.duration);
+        this.time.delayedCall(char.duration, () => {
+          this.shieldActive = false; this.magnetActive = false; this.speedActive = false;
+          this._safeUpdateUI('hidePowerup');
+        });
+        break;
+    }
+  }
+
   // ── Game Over ─────────────────────────────────────────────────────
   _triggerGameOver() {
     if (this.gameOver) return;
+    // Rebirth power: auto revive once
+    if (this._rebirthReady) {
+      this._rebirthReady = false;
+      this.lives = Math.max(1, this.lives);
+      this._showFloatingText(this.player.x, this.player.y - 50, 'REBORN!', '#ff2200');
+      this._respawnPlayer();
+      return;
+    }
     this.gameOver = true;
     this._deactivatePowerup();
     this.player.die(this);
@@ -703,6 +848,13 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (this.shieldRing) { this.shieldRing.x = this.player.x; this.shieldRing.y = this.player.y; }
+
+    // Tick character power cooldown
+    if (this.charPowerCooldown > 0) {
+      this.charPowerCooldown -= delta;
+      if (this.charPowerCooldown < 0) this.charPowerCooldown = 0;
+      this._safeUpdateUI('updatePowerCooldown', this.charPowerCooldown, this._charPowerMaxCooldown);
+    }
 
     this.level.generate(camX, this.score);
     this.level.cleanup(camX);

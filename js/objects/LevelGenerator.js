@@ -115,58 +115,59 @@ export default class LevelGenerator {
   generate(cameraX, score) {
     if (this.lastX > cameraX + 1300) return;
 
-    // Difficulty: ramps 0→1 over first 60 score points (gentler start)
-    const difficulty = Math.min(score / 60, 1);
+    // Difficulty ramps VERY slowly — 0→1 over first 200 score points
+    // First 50 points: almost no enemies/obstacles, wide platforms, small gaps
+    const difficulty = Math.min(score / 200, 1);
+    const earlyGame  = score < 50; // extra easy phase
 
-    // Gap increases with difficulty but stays jumpable
-    const gapMin = 70 + difficulty * 50;
-    const gapMax = 130 + difficulty * 70;
+    // Gaps: start small, grow with difficulty
+    const gapMin = earlyGame ? 50 : 60 + difficulty * 60;
+    const gapMax = earlyGame ? 80 : 110 + difficulty * 80;
     const gap    = gapMin + Math.random() * (gapMax - gapMin);
 
-    // Platform tile count decreases as difficulty grows
-    const minTiles = Math.max(2, 4 - Math.floor(difficulty * 2));
+    // Platforms: start wide (5 tiles), shrink slowly
+    const minTiles = earlyGame ? 4 : Math.max(2, 5 - Math.floor(difficulty * 3));
     const tiles    = minTiles + Math.floor(Math.random() * 2);
 
-    // Y stays reachable
-    const deltaY = (Math.random() - 0.5) * 80;
-    this.lastY   = Phaser.Math.Clamp(this.lastY + deltaY, 170, 370);
+    // Y change: small at start, increases with difficulty
+    const maxDeltaY = earlyGame ? 40 : 40 + difficulty * 60;
+    const deltaY    = (Math.random() - 0.5) * maxDeltaY;
+    this.lastY      = Phaser.Math.Clamp(this.lastY + deltaY, 180, 360);
 
-    // No stacking platforms too close vertically
-    const isFloat = Math.random() < 0.25 + difficulty * 0.15;
+    const isFloat = !earlyGame && Math.random() < difficulty * 0.2;
     const startX  = this.lastX + gap;
 
     for (let i = 0; i < tiles; i++) this._placePlatform(startX + i * 72, this.lastY, isFloat);
 
-    // Coins on top - skip first tile to leave landing space
+    // Coins on top
     for (let i = 1; i < tiles; i++) {
-      if (Math.random() < 0.65) this._placeCoin(startX + i * 72, this.lastY - 26);
+      if (Math.random() < 0.7) this._placeCoin(startX + i * 72, this.lastY - 26);
     }
 
-    // Place EITHER obstacle OR enemy on a platform tile — never both at same X
-    const hasEnoughTiles = tiles >= 3;
-    const enemyChance    = difficulty * 0.35;
-    const obstChance     = 0.12 + difficulty * 0.2;
+    // Obstacles & enemies — NONE in early game, slowly introduced
+    if (!earlyGame && tiles >= 3) {
+      const enemyChance = difficulty * 0.3;
+      const obstChance  = difficulty * 0.25;
+      let placed = false;
 
-    let obstPlaced = false;
-    if (hasEnoughTiles && Math.random() < obstChance) {
-      // Place on last tile
-      this._placeObstacle(startX + (tiles - 1) * 72, this.lastY - 40);
-      obstPlaced = true;
-    }
-    if (!obstPlaced && hasEnoughTiles && Math.random() < enemyChance) {
-      // Place on first tile — different from obstacle tile
-      this._placeEnemy(startX + 72, this.lastY - 28);
+      if (Math.random() < obstChance) {
+        this._placeObstacle(startX + (tiles - 1) * 72, this.lastY - 40);
+        placed = true;
+      }
+      if (!placed && Math.random() < enemyChance) {
+        this._placeEnemy(startX + 72, this.lastY - 28);
+      }
     }
 
-    // Powerup every 9 platforms — placed on 2nd tile, clear of enemy/obstacle
+    // Powerup every 8 platforms
     this.powerupCounter++;
-    if (this.powerupCounter >= 9 && tiles >= 3) {
+    if (this.powerupCounter >= 8 && tiles >= 3) {
       this.powerupCounter = 0;
       const types = Object.values(POWERUP_TYPES);
       this._placePowerup(startX + 72, this.lastY - 36, types[Math.floor(Math.random() * types.length)]);
     }
 
-    // Air collectible in the gap mid-air every 5 platforms
+    // Air collectible every 5 platforms
     this.airCounter++;
     if (this.airCounter >= 5) {
       this.airCounter = 0;

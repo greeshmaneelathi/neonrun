@@ -133,6 +133,49 @@ export default class UIScene extends Phaser.Scene {
     this._powerupColor    = 0x00f5ff;
   }
 
+  _getChar() {
+    try {
+      const { CHARACTERS } = window._neonrunChars || {};
+      if (!CHARACTERS) return null;
+      const gs = this.scene.get('GameScene');
+      const charId = gs?.charId;
+      return CHARACTERS[this.themeId]?.find(c => c.id === charId) || null;
+    } catch(e) { return null; }
+  }
+
+  _drawPowerBtn(g, x, y, hover) {
+    const ready = this._powerCooldown <= 0;
+    const col = ready ? 0xffee00 : 0x888800;
+    g.clear();
+    g.fillStyle(col, hover ? 0.28 : 0.12);
+    g.fillRoundedRect(x - 55, y - 16, 110, 32, 16);
+    g.lineStyle(hover ? 2 : 1.5, col, ready ? (hover ? 1 : 0.6) : 0.3);
+    g.strokeRoundedRect(x - 55, y - 16, 110, 32, 16);
+  }
+
+  updatePowerCooldown(remaining, max) {
+    this._powerCooldown    = remaining;
+    this._powerMaxCooldown = max || 1;
+    const ready = remaining <= 0;
+
+    // Redraw button colour
+    const W = this.scale.width;
+    this._drawPowerBtn(this._pwrBg, W/2 - 60, this.scale.height - 30, false);
+    this._pwrLabel.setColor(ready ? '#ffee00' : '#888800');
+    this._pwrLabel.setText(ready ? '⚡ POWER' : `⚡ ${Math.ceil(remaining/1000)}s`);
+
+    // Cooldown arc bar
+    this._pwrBar.clear();
+    if (!ready) {
+      const progress = 1 - remaining / max;
+      this._pwrBar.lineStyle(3, 0xffee00, 0.6);
+      this._pwrBar.beginPath();
+      this._pwrBar.arc(W/2 - 60, this.scale.height - 30, 18,
+        -Math.PI/2, -Math.PI/2 + Math.PI * 2 * progress, false);
+      this._pwrBar.strokePath();
+    }
+  }
+
   // ── Icon button draw helper — neon themed ────────────────────────
   _drawIconBtn(g, x, y, r, hover, col) {
     const c = col || 0x00f5ff;
