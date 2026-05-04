@@ -61,11 +61,20 @@ export default class Player extends Phaser.Physics.Arcade.Sprite {
 
   hit(scene) {
     if (this.invincible || this.isDead) return false;
+    // Use hitInvincible flag for the brief post-hit protection
+    // so it doesn't overwrite the longer respawn invincibility
     this.invincible = true;
+    this._hitInvincibleTimer = scene.time.delayedCall(700, () => {
+      // Only turn off if we're not in respawn invincibility
+      if (!this._respawnInvincible) {
+        this.invincible = false;
+        this.setAlpha(1);
+      }
+    });
     scene.tweens.add({
       targets: this, alpha:{from:1,to:0.2},
       duration: 100, yoyo: true, repeat: 5,
-      onComplete: () => { this.setAlpha(1); this.invincible = false; }
+      onComplete: () => { if (!this._respawnInvincible) this.setAlpha(1); }
     });
     this.setVelocityY(-300);
     scene.cameras.main.shake(200, 0.01);

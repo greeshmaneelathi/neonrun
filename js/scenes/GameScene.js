@@ -506,7 +506,38 @@ export default class GameScene extends Phaser.Scene {
         this.physics.world.isPaused = false;
         this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
         this.cameras.main.setDeadzone(100, 60);
-        this.time.delayedCall(6000, () => { if (this.player) this.player.invincible = false; });
+
+        // 6 second respawn invincibility
+        this.player.invincible = true;
+        this.player._respawnInvincible = true;
+
+        // Flash effect to show invincibility
+        this.tweens.killTweensOf(this.player);
+        this.tweens.add({
+          targets: this.player,
+          alpha: { from: 1, to: 0.25 },
+          duration: 220, yoyo: true, repeat: 13,
+          onComplete: () => { if (this.player) this.player.setAlpha(1); }
+        });
+
+        // Floating text
+        this._showFloatingText(
+          this.player.x, this.player.y - 55,
+          '⚡ INVINCIBLE 6s!', '#ffee00'
+        );
+
+        // HUD message
+        this._safeUpdateUI('showPowerup', 'INVINCIBLE', 6000);
+
+        // End after 6 seconds
+        this.time.delayedCall(6000, () => {
+          if (this.player) {
+            this.player.invincible = false;
+            this.player._respawnInvincible = false;
+            this.player.setAlpha(1);
+          }
+          this._safeUpdateUI('hidePowerup');
+        });
       };
 
       this.input.off('pointerdown', this._respawnResumeFn);
