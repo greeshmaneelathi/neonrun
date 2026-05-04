@@ -507,11 +507,18 @@ export default class GameScene extends Phaser.Scene {
         this.cameras.main.startFollow(this.player, true, 0.08, 0.08);
         this.cameras.main.setDeadzone(100, 60);
 
-        // 6 second respawn invincibility
+        // 6 second respawn invincibility + no gravity (float forward)
         this.player.invincible = true;
         this.player._respawnInvincible = true;
 
-        // Flash effect to show invincibility
+        // Kill gravity so player floats forward at a fixed Y
+        const floatY = this.player.y;
+        this.player.body.setGravityY(-900); // cancel world gravity
+        this.player.setVelocityY(0);
+        this._respawnFloatY = floatY;
+        this._respawnFloating = true;
+
+        // Flash effect
         this.tweens.killTweensOf(this.player);
         this.tweens.add({
           targets: this.player,
@@ -526,16 +533,18 @@ export default class GameScene extends Phaser.Scene {
           '⚡ INVINCIBLE 6s!', '#ffee00'
         );
 
-        // HUD message
+        // HUD bar
         this._safeUpdateUI('showPowerup', 'INVINCIBLE', 6000);
 
-        // End after 6 seconds
+        // End after 6 seconds — restore gravity
         this.time.delayedCall(6000, () => {
           if (this.player) {
             this.player.invincible = false;
             this.player._respawnInvincible = false;
+            this.player.body.setGravityY(0); // restore normal gravity
             this.player.setAlpha(1);
           }
+          this._respawnFloating = false;
           this._safeUpdateUI('hidePowerup');
         });
       };
@@ -879,6 +888,17 @@ export default class GameScene extends Phaser.Scene {
     }
 
     if (this.shieldRing) { this.shieldRing.x = this.player.x; this.shieldRing.y = this.player.y; }
+
+    // During respawn float: keep player at fixed Y unless jumping higher
+    if (this._respawnFloating && this.player && this.player.body) {
+      // Allow jumping up freely, but prevent falling below float line
+      if (this.player.y > this._respawnFloatY + 5) {
+        this.player.y = this._respawnFloatY;
+        this.player.setVelocityY(0);
+      }
+      // Keep gravity cancelled
+      this.player.body.setGravityY(-900);
+    }
 
     // Tick character power cooldown
     if (this.charPowerCooldown > 0) {
